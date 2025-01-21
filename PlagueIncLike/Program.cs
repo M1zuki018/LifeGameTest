@@ -2,10 +2,10 @@
 /// ライフゲームのシミュレーションを派生させてみた
 /// ①セルの状態は「健康 = " "」「感染 = "I"」とする
 /// ②感染条件の定義
-///     A.感染確率は5%
+///     A.感染確率は5%。これは周りに感染マスがなかった場合は起きない
 ///     B.感染を起こす範囲は、隣接する8マスに限定される
-///     C.2マス以上隣接するマスがあった場合は、感染確率は1%ずつ上昇する（1マスなら5％、2マスなら6%、3マスなら7%...）
-///     D.ランダムで0.1％の確率で、感染状態のマスが健康状態になる（現在コメントアウトしています）
+///     C.2マス以上隣接するマスがあった場合は、感染確率は2%ずつ上昇する（1マスなら5％、2マスなら6%、3マスなら7%...）
+///     D.ランダムで0.01％の確率で、感染状態のマスが健康状態になる（現在コメントアウトしています）
 /// </summary>
 class PlagueIncLike
 {
@@ -100,10 +100,10 @@ class PlagueIncLike
             {
                 if (grid[i, j]) //判定中のセルが感染状態なら
                 {
-                    //0.1%の確率で、感染状態から健康状態になる
-                    if (rand.Next(1000) < 1)
+                    //0.01%の確率で、感染状態から健康状態になる
+                    if (rand.Next(10000) < 1)
                     {
-                        //nextGrid[i, j] = false; //健康状態に戻る
+                        nextGrid[i, j] = false; //健康状態に戻る
                     }
                     else
                     {
@@ -114,16 +114,24 @@ class PlagueIncLike
                 {
                     // 健康状態の場合、感染の可能性を計算
                     int infectedNeighbors = CountInfectedNeighbors(grid, i, j, rows, cols);
-                    int infectionChance = 5 + (infectedNeighbors - 1) * 1; // 感染確率を計算
 
-                    // 感染するかどうかを判定
-                    if (rand.Next(100) < infectionChance)
+                    if (infectedNeighbors > 0) //周囲に感染マスがある場合にのみ感染する可能性がある
                     {
-                        nextGrid[i, j] = true; // 感染状態にする
+                        int infectionChance = 5 + (infectedNeighbors - 1) * 2; // 感染確率を計算
+
+                        // 感染するかどうかを判定
+                        if (rand.Next(100) < infectionChance)
+                        {
+                            nextGrid[i, j] = true; // 感染状態にする
+                        }
+                        else
+                        {
+                            nextGrid[i, j] = false; // 健康状態を維持
+                        }
                     }
                     else
                     {
-                        nextGrid[i, j] = false; // 健康状態を維持
+                        nextGrid[i, j] = false; //周囲に感染マスがなければ必ず感染しない
                     }
                 }
             }
