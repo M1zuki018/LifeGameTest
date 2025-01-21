@@ -1,7 +1,11 @@
 ﻿/// <summary>
 /// ライフゲームのシミュレーションを派生させてみた
 /// ①セルの状態は「健康 = " "」「感染 = "I"」とする
-/// ②感染条件、死亡条件の定義を仕様に合わせて変更する
+/// ②感染条件の定義
+///     A.感染確率は5%
+///     B.感染を起こす範囲は、隣接する8マスに限定される
+///     C.2マス以上隣接するマスがあった場合は、感染確率は1%ずつ上昇する（1マスなら5％、2マスなら6%、3マスなら7%...）
+///     D.ランダムで0.1％の確率で、感染状態のマスが健康状態になる（現在コメントアウトしています）
 /// </summary>
 class PlagueIncLike
 {
@@ -17,12 +21,36 @@ class PlagueIncLike
         bool[,] nextGrid = new bool[rows, cols];
 
         InitializeGrid(grid); // 初期化
-
+        
         while (true)
         {
             Console.Clear(); // コンソールウィンドウをクリアする
             PrintGrid(grid); // 現在のグリッドを表示
             UpdateGrid(grid, nextGrid); // 次世代を計算
+            
+            // 全てのマスが感染しているか確認
+            bool allInfected = true;
+            for (int x = 0; x < rows; x++)
+            {
+                for (int y = 0; y < cols; y++)
+                {
+                    if (!nextGrid[x, y])
+                    {
+                        allInfected = false;
+                        break;
+                    }
+                }
+                if (!allInfected) break;
+            }
+
+            if (allInfected)
+            {
+                Console.Clear();
+                PrintGrid(nextGrid); //最後の描画を行う
+                Console.WriteLine("全人類が感染しました。");
+                break;
+            }
+            
             Thread.Sleep(200); // 表示間隔
         }
     }
@@ -38,7 +66,7 @@ class PlagueIncLike
             int[] line = Array.ConvertAll(Console.ReadLine().Split(), int.Parse);
             int row = line[0]; //行数の指定
             int col = line[1]; //列数の指定
-            grid[row, col] = true; //感染状態にす
+            grid[row, col] = true; //感染状態にする
         }
     }
 
@@ -62,6 +90,7 @@ class PlagueIncLike
     /// </summary>
     static void UpdateGrid(bool[,] grid, bool[,] nextGrid)
     {
+        Random rand = new Random();
         int rows = grid.GetLength(0); //グリッドの行の配列の長さを取得
         int cols = grid.GetLength(1); //グリッドの列の配列の長さを取得
 
@@ -69,17 +98,33 @@ class PlagueIncLike
         {
             for (int j = 0; j < cols; j++)
             {
-                int aliveNeighbors = CountAliveNeighbors(grid, i, j, rows, cols); //生存している隣接セルを数える
-
-                if (grid[i, j]) //判定中のセルが「生」状態なら
+                if (grid[i, j]) //判定中のセルが感染状態なら
                 {
-                    // 隣接する「生」のマスが2個か3個ならtrue＝「生」状態、それ以外ならfalse＝「死」状態とする
-                    nextGrid[i, j] = aliveNeighbors == 2 || aliveNeighbors == 3;
+                    //0.1%の確率で、感染状態から健康状態になる
+                    if (rand.Next(1000) < 1)
+                    {
+                        //nextGrid[i, j] = false; //健康状態に戻る
+                    }
+                    else
+                    {
+                        grid[i, j] = true; //感染状態を維持
+                    }
                 }
-                else // 判定中のセルが「死」状態なら
+                else 
                 {
-                    //  隣接する「生」のマスが3個ならtrue＝「生」状態、それ以外ならfalse＝「死」状態とする
-                    nextGrid[i, j] = aliveNeighbors == 3;
+                    // 健康状態の場合、感染の可能性を計算
+                    int infectedNeighbors = CountInfectedNeighbors(grid, i, j, rows, cols);
+                    int infectionChance = 5 + (infectedNeighbors - 1) * 1; // 感染確率を計算
+
+                    // 感染するかどうかを判定
+                    if (rand.Next(100) < infectionChance)
+                    {
+                        nextGrid[i, j] = true; // 感染状態にする
+                    }
+                    else
+                    {
+                        nextGrid[i, j] = false; // 健康状態を維持
+                    }
                 }
             }
         }
@@ -90,30 +135,24 @@ class PlagueIncLike
     }
     
     /// <summary>
-    /// 生存している隣接セルを数える
+    /// 隣接する感染状態（true）のセルを数える関数
     /// </summary>
     /// <param name="x">自分のセルの行数</param>
     /// <param name="y">自分のセルの列数</param>
-    static int CountAliveNeighbors(bool[,] grid, int x, int y, int rows, int cols)
+    static int CountInfectedNeighbors(bool[,] grid, int x, int y, int rows, int cols)
     {
         int count = 0;
-
-        // 近傍のセルをチェックするために、-1から+1までの範囲を走査
-        for (int i = -1; i <= 1; i++) //上下方向
+        
+        for (int i = -1; i <= 1; i++)
         {
-            for (int j = -1; j <= 1; j++) //左右方向
+            for (int j = -1; j <= 1; j++)
             {
-                if (i == 0 && j == 0) continue; // (0, 0)の場合は自分自身を指すためスキップ
-                
+                if (i == 0 && j == 0) continue; // 自分自身をスキップ
+
                 int ni = x + i;
                 int nj = y + j;
 
-                // 確認①チェック対象のセルがグリッドの範囲外でないか
-                // 「ni >= 0」 → 行インデックスが0以上
-                // 「ni < rows」 → 行インデックスが行数未満
-                // 「nj >= 0」 → 列インデックスが0以上
-                // 「nj < cols」 → 列インデックスが列数未満
-                // 確認②grid[ni, nj] → 対象のセルが 「生」状態かどうか
+                // 隣接セルがグリッド範囲内かつ感染状態かを確認
                 if (ni >= 0 && ni < rows && nj >= 0 && nj < cols && grid[ni, nj])
                 {
                     count++;
@@ -121,6 +160,6 @@ class PlagueIncLike
             }
         }
 
-        return count;
+        return count; // 感染している隣接セルの数を返す
     }
 }
